@@ -10,6 +10,10 @@ import {
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { RootStackParamList } from '../types';
 import { useHomeViewModel } from '../viewmodels/useHomeViewModel';
+import { useNotificationViewModel } from '../viewmodels/useNotificationViewModel';
+import { useAppSelector, useAppDispatch } from '../store';
+import { addNotification } from '../store/slices/notificationSlice';
+import { CustomNotification, NotificationType, NotificationPriority } from '../types/notification';
 import LoadingSpinner from '../components/LoadingSpinner';
 import ErrorMessage from '../components/ErrorMessage';
 
@@ -28,6 +32,38 @@ const HomeView: React.FC<Props> = ({ navigation }) => {
     clearErrors,
     refreshData,
   } = useHomeViewModel();
+  
+  const { 
+    showSuccessNotification, 
+    showErrorNotification,
+    showWarningNotification,
+    showInfoNotification 
+  } = useNotificationViewModel();
+  const { unreadCount } = useAppSelector(state => state.notification);
+  const dispatch = useAppDispatch();
+
+  // Function to add persistent notification directly to the center
+  const addPersistentNotification = (
+    title: string, 
+    message: string, 
+    type: NotificationType,
+    category?: string
+  ) => {
+    const notification: CustomNotification = {
+      id: `persistent_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+      title,
+      message,
+      type,
+      timestamp: Date.now(),
+      isRead: false,
+      priority: 'normal' as NotificationPriority,
+      category: category || type,
+    };
+    
+    console.log('Adding persistent notification:', notification);
+    dispatch(addNotification(notification));
+    console.log('Notification dispatched to store');
+  };
 
   if (isLoading && !user) {
     return <LoadingSpinner message="Loading user data..." />;
@@ -69,6 +105,66 @@ const HomeView: React.FC<Props> = ({ navigation }) => {
           onPress={() => navigation.navigate('Settings')}
         >
           <Text style={styles.actionButtonText}>Settings</Text>
+        </TouchableOpacity>
+
+        <TouchableOpacity
+          style={styles.actionButton}
+          onPress={() => navigation.navigate('Notifications')}
+        >
+          <View style={styles.notificationButtonContent}>
+            <Text style={styles.actionButtonText}>Notifications</Text>
+            {unreadCount > 0 && (
+              <View style={styles.badge}>
+                <Text style={styles.badgeText}>{unreadCount}</Text>
+              </View>
+            )}
+          </View>
+        </TouchableOpacity>
+
+        <TouchableOpacity
+          style={[styles.actionButton, { backgroundColor: '#34C759' }]}
+          onPress={() => showSuccessNotification('In-App Success', 'This shows as overlay AND saves to notification center!')}
+        >
+          <Text style={styles.actionButtonText}>Test In-App Notification</Text>
+        </TouchableOpacity>
+
+        <TouchableOpacity
+          style={[styles.actionButton, { backgroundColor: '#FF9500' }]}
+          onPress={() => addPersistentNotification('Persistent Success', 'This goes directly to notification center only!', 'success', 'test')}
+        >
+          <Text style={styles.actionButtonText}>Add Persistent Notification</Text>
+        </TouchableOpacity>
+      </View>
+
+      <View style={styles.section}>
+        <Text style={styles.sectionTitle}>Notification Tests</Text>
+        
+        <TouchableOpacity
+          style={[styles.actionButton, { backgroundColor: '#4CAF50' }]}
+          onPress={() => addPersistentNotification('Success Message', 'Operation completed successfully!', 'success')}
+        >
+          <Text style={styles.actionButtonText}>Add Success</Text>
+        </TouchableOpacity>
+
+        <TouchableOpacity
+          style={[styles.actionButton, { backgroundColor: '#F44336' }]}
+          onPress={() => addPersistentNotification('Error Message', 'Something went wrong!', 'error')}
+        >
+          <Text style={styles.actionButtonText}>Add Error</Text>
+        </TouchableOpacity>
+
+        <TouchableOpacity
+          style={[styles.actionButton, { backgroundColor: '#FF9800' }]}
+          onPress={() => addPersistentNotification('Warning Message', 'Please check your settings!', 'warning')}
+        >
+          <Text style={styles.actionButtonText}>Add Warning</Text>
+        </TouchableOpacity>
+
+        <TouchableOpacity
+          style={[styles.actionButton, { backgroundColor: '#2196F3' }]}
+          onPress={() => addPersistentNotification('Info Message', 'Here is some useful information!', 'info')}
+        >
+          <Text style={styles.actionButtonText}>Add Info</Text>
         </TouchableOpacity>
       </View>
 
@@ -162,6 +258,25 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '600',
     textAlign: 'center',
+  },
+  notificationButtonContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  badge: {
+    backgroundColor: '#FF3B30',
+    borderRadius: 10,
+    minWidth: 20,
+    height: 20,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginLeft: 8,
+  },
+  badgeText: {
+    color: 'white',
+    fontSize: 12,
+    fontWeight: 'bold',
   },
   loadingOverlay: {
     position: 'absolute',

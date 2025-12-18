@@ -4,7 +4,7 @@ import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { RootStackParamList } from '../types';
 
 // Import Views
-import { HomeView, ProfileView, SettingsView } from '../views';
+import { HomeView, ProfileView, SettingsView, NotificationView } from '../views';
 
 const Stack = createNativeStackNavigator<RootStackParamList>();
 
@@ -37,6 +37,11 @@ const AppNavigator: React.FC = () => {
           name="Settings" 
           component={SettingsView}
           options={{ title: 'Settings' }}
+        />
+        <Stack.Screen 
+          name="Notifications" 
+          component={NotificationView}
+          options={{ title: 'Notifications' }}
         />
       </Stack.Navigator>
     </NavigationContainer>

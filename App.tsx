@@ -11,6 +11,7 @@ import { Provider } from 'react-redux';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { store } from './src/store';
 import AppNavigator from './src/navigation/AppNavigator';
+import NotificationManager from './src/components/notifications/NotificationManager';
 
 function App(): React.JSX.Element {
   const isDarkMode = useColorScheme() === 'dark';
@@ -20,6 +21,7 @@ function App(): React.JSX.Element {
       <SafeAreaProvider>
         <StatusBar barStyle={isDarkMode ? 'light-content' : 'dark-content'} />
         <AppNavigator />
+        <NotificationManager />
       </SafeAreaProvider>
     </Provider>
   );
