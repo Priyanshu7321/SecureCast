@@ -14,7 +14,7 @@ class NotificationService {
       // Request notification permissions
       const settings = await notifee.requestPermission();
       console.log('Notification permission status:', settings.authorizationStatus);
-      
+
       // Create notification channels for Android
       if (Platform.OS === 'android') {
         await this.createNotificationChannels();
@@ -23,7 +23,7 @@ class NotificationService {
       // Set up notification event handlers
       notifee.onForegroundEvent(({ type, detail }) => {
         console.log('Foreground notification event:', type, detail);
-        
+
         if (type === EventType.PRESS) {
           this.handleNotificationTap(detail.notification);
         }
@@ -31,7 +31,7 @@ class NotificationService {
 
       notifee.onBackgroundEvent(async ({ type, detail }) => {
         console.log('Background notification event:', type, detail);
-        
+
         if (type === EventType.PRESS) {
           this.handleNotificationTap(detail.notification);
         }
@@ -93,15 +93,15 @@ class NotificationService {
   async requestPermissions(): Promise<boolean> {
     try {
       const settings = await notifee.requestPermission();
-      
+
       if (Platform.OS === 'android') {
         // For Android 13+, also request POST_NOTIFICATIONS permission
         if (Platform.Version >= 33) {
           const granted = await PermissionsAndroid.request(
             PermissionsAndroid.PERMISSIONS.POST_NOTIFICATIONS
           );
-          return granted === PermissionsAndroid.RESULTS.GRANTED && 
-                 settings.authorizationStatus === AuthorizationStatus.AUTHORIZED;
+          return granted === PermissionsAndroid.RESULTS.GRANTED &&
+            settings.authorizationStatus === AuthorizationStatus.AUTHORIZED;
         }
         return settings.authorizationStatus === AuthorizationStatus.AUTHORIZED;
       } else {
@@ -115,7 +115,7 @@ class NotificationService {
 
   async getFCMToken(): Promise<string | null> {
     if (this.fcmToken) return this.fcmToken;
-    
+
     try {
       // For FCM integration, you would typically use @react-native-firebase/messaging
       // For now, we'll return a mock token for demonstration
@@ -126,7 +126,7 @@ class NotificationService {
     } catch (error) {
       console.error('Failed to get FCM token:', error);
     }
-    
+
     return null;
   }
 
@@ -141,7 +141,7 @@ class NotificationService {
   async scheduleLocalNotification(notification: Omit<CustomNotification, 'id' | 'timestamp'>): Promise<string> {
     try {
       const notificationId = `local_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
-      
+
       // Use Notifee for both platforms
       await notifee.displayNotification({
         id: notificationId,
@@ -152,11 +152,13 @@ class NotificationService {
           channelId: this.getChannelId(notification.type),
           importance: this.getAndroidImportance(notification.priority),
           smallIcon: 'ic_launcher',
-          largeIcon: notification.imageUrl,
-          style: notification.imageUrl ? {
-            type: AndroidStyle.BIGPICTURE,
-            picture: notification.imageUrl,
-          } : undefined,
+          ...(notification.imageUrl && {
+            largeIcon: notification.imageUrl,
+            style: {
+              type: AndroidStyle.BIGPICTURE,
+              picture: notification.imageUrl,
+            },
+          }),
           actions: notification.actions?.map(action => ({
             title: action.title,
             pressAction: { id: action.id },

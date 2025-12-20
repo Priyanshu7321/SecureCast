@@ -25,7 +25,7 @@ export const useNotificationViewModel = () => {
   // Initialize notifications on mount
   useEffect(() => {
     initializeNotificationSystem();
-    
+
     // Add some demo notifications for testing
     setTimeout(() => {
       const demoNotifications = [
@@ -112,7 +112,7 @@ export const useNotificationViewModel = () => {
 
     // Show the in-app notification
     dispatch(addInAppNotification(notification));
-    
+
     // Also save to notification center by default (unless explicitly disabled)
     if (options?.saveToCenter !== false) {
       dispatch(addNotification(notification));
@@ -130,6 +130,11 @@ export const useNotificationViewModel = () => {
       sound?: string;
       vibration?: boolean;
       data?: any;
+      actions?: Array<{
+        id: string;
+        title: string;
+        onPress?: () => void;
+      }>;
     }
   ) => {
     try {
@@ -144,6 +149,10 @@ export const useNotificationViewModel = () => {
         sound: options?.sound,
         vibration: options?.vibration,
         data: options?.data,
+        actions: options?.actions?.map(action => {
+          const { onPress, ...serializableAction } = action;
+          return serializableAction;
+        }),
       };
 
       await dispatch(scheduleLocalNotification(notification)).unwrap();
@@ -177,7 +186,7 @@ export const useNotificationViewModel = () => {
           {
             id: 'dismiss',
             title: 'Dismiss',
-            onPress: () => {},
+            onPress: () => { },
           },
         ],
       });

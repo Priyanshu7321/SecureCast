@@ -12,7 +12,7 @@ import { RootStackParamList } from '../types';
 import { useHomeViewModel } from '../viewmodels/useHomeViewModel';
 import { useNotificationViewModel } from '../viewmodels/useNotificationViewModel';
 import { useAppSelector, useAppDispatch } from '../store';
-import { addNotification } from '../store/slices/notificationSlice';
+import { addNotification, addInAppNotification } from '../store/slices/notificationSlice';
 import { CustomNotification, NotificationType, NotificationPriority } from '../types/notification';
 import LoadingSpinner from '../components/LoadingSpinner';
 import ErrorMessage from '../components/ErrorMessage';
@@ -32,37 +32,37 @@ const HomeView: React.FC<Props> = ({ navigation }) => {
     clearErrors,
     refreshData,
   } = useHomeViewModel();
-  
-  const { 
-    showSuccessNotification, 
+
+  const {
+    showSuccessNotification,
     showErrorNotification,
     showWarningNotification,
-    showInfoNotification 
+    showInfoNotification,
+    showLocalNotification
   } = useNotificationViewModel();
   const { unreadCount } = useAppSelector(state => state.notification);
   const dispatch = useAppDispatch();
 
   // Function to add persistent notification directly to the center
   const addPersistentNotification = (
-    title: string, 
-    message: string, 
+    title: string,
+    message: string,
     type: NotificationType,
     category?: string
   ) => {
-    const notification: CustomNotification = {
-      id: `persistent_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
-      title,
-      message,
-      type,
-      timestamp: Date.now(),
-      isRead: false,
-      priority: 'normal' as NotificationPriority,
+    // Use showLocalNotification to trigger a system/local notification
+    // This will appear in the device's notification tray AND be added to the internal store
+    showLocalNotification(title, message, type, {
       category: category || type,
-    };
-    
-    console.log('Adding persistent notification:', notification);
-    dispatch(addNotification(notification));
-    console.log('Notification dispatched to store');
+      priority: 'normal',
+      actions: [
+        { id: 'view', title: 'View', onPress: () => console.log('View') },
+        { id: 'mark_read', title: 'Mark Read', onPress: () => console.log('Mark Read') },
+        { id: 'dismiss', title: 'Dismiss', onPress: () => console.log('Dismiss') },
+      ]
+    });
+
+    console.log('Triggered local persistent notification');
   };
 
   if (isLoading && !user) {
@@ -92,7 +92,7 @@ const HomeView: React.FC<Props> = ({ navigation }) => {
 
       <View style={styles.section}>
         <Text style={styles.sectionTitle}>Quick Actions</Text>
-        
+
         <TouchableOpacity
           style={styles.actionButton}
           onPress={() => navigation.navigate('Profile')}
@@ -138,7 +138,7 @@ const HomeView: React.FC<Props> = ({ navigation }) => {
 
       <View style={styles.section}>
         <Text style={styles.sectionTitle}>Notification Tests</Text>
-        
+
         <TouchableOpacity
           style={[styles.actionButton, { backgroundColor: '#4CAF50' }]}
           onPress={() => addPersistentNotification('Success Message', 'Operation completed successfully!', 'success')}
@@ -170,7 +170,7 @@ const HomeView: React.FC<Props> = ({ navigation }) => {
 
       <View style={styles.section}>
         <Text style={styles.sectionTitle}>External Links</Text>
-        
+
         <TouchableOpacity
           style={[styles.actionButton, styles.linkButton]}
           onPress={() => openURL('https://reactnative.dev/docs/tutorial')}

@@ -16,12 +16,12 @@ export interface CustomNotification {
   duration?: number;
 }
 
-export type NotificationType = 
-  | 'success' 
-  | 'error' 
-  | 'warning' 
-  | 'info' 
-  | 'push' 
+export type NotificationType =
+  | 'success'
+  | 'error'
+  | 'warning'
+  | 'info'
+  | 'push'
   | 'local'
   | 'custom';
 
@@ -32,7 +32,7 @@ export interface NotificationAction {
   title: string;
   icon?: string;
   destructive?: boolean;
-  onPress: () => void;
+  onPress?: () => void;
 }
 
 export interface NotificationConfig {
