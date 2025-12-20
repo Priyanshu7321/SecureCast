@@ -6,17 +6,47 @@ import {
   StyleSheet,
   ScrollView,
   Switch,
+  Alert,
 } from 'react-native';
 import { useAppDispatch, useAppSelector } from '../store';
 import { setTheme } from '../store/slices/appSlice';
+import { logout } from '../store/slices/authSlice';
+import { useNotificationViewModel } from '../viewmodels/useNotificationViewModel';
 
 const SettingsView: React.FC = () => {
   const dispatch = useAppDispatch();
   const { theme } = useAppSelector(state => state.app);
   const { currentUser } = useAppSelector(state => state.user);
+  const { user: authUser, isLoading } = useAppSelector(state => state.auth);
+  const { showSuccessNotification } = useNotificationViewModel();
 
   const toggleTheme = () => {
     dispatch(setTheme(theme === 'light' ? 'dark' : 'light'));
+  };
+
+  const handleLogout = () => {
+    Alert.alert(
+      'Sign Out',
+      'Are you sure you want to sign out?',
+      [
+        {
+          text: 'Cancel',
+          style: 'cancel',
+        },
+        {
+          text: 'Sign Out',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              await dispatch(logout()).unwrap();
+              showSuccessNotification('Signed Out', 'You have been successfully signed out.');
+            } catch (error) {
+              console.error('Logout error:', error);
+            }
+          },
+        },
+      ]
+    );
   };
 
   return (
@@ -40,12 +70,17 @@ const SettingsView: React.FC = () => {
         
         <View style={styles.settingItem}>
           <Text style={styles.settingLabel}>User ID</Text>
-          <Text style={styles.settingValue}>{currentUser?.id || 'Not logged in'}</Text>
+          <Text style={styles.settingValue}>{authUser?.id || currentUser?.id || 'Not logged in'}</Text>
         </View>
 
         <View style={styles.settingItem}>
           <Text style={styles.settingLabel}>Email</Text>
-          <Text style={styles.settingValue}>{currentUser?.email || 'Not available'}</Text>
+          <Text style={styles.settingValue}>{authUser?.email || currentUser?.email || 'Not available'}</Text>
+        </View>
+
+        <View style={styles.settingItem}>
+          <Text style={styles.settingLabel}>Name</Text>
+          <Text style={styles.settingValue}>{authUser?.name || currentUser?.name || 'Not available'}</Text>
         </View>
       </View>
 
@@ -56,8 +91,14 @@ const SettingsView: React.FC = () => {
           <Text style={styles.actionButtonText}>Clear Cache</Text>
         </TouchableOpacity>
 
-        <TouchableOpacity style={[styles.actionButton, styles.dangerButton]}>
-          <Text style={styles.actionButtonText}>Sign Out</Text>
+        <TouchableOpacity 
+          style={[styles.actionButton, styles.dangerButton]}
+          onPress={handleLogout}
+          disabled={isLoading}
+        >
+          <Text style={styles.actionButtonText}>
+            {isLoading ? 'Signing Out...' : 'Sign Out'}
+          </Text>
         </TouchableOpacity>
       </View>
 

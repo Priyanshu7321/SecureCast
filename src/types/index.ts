@@ -6,12 +6,38 @@ export type RootStackParamList = {
   Notifications: undefined;
 };
 
+export type AuthStackParamList = {
+  Login: undefined;
+  SignUp: undefined;
+  ForgotPassword: undefined;
+};
+
 // User model
 export interface User {
   id: string;
   name: string;
   email: string;
   avatar?: string;
+  token?: string;
+}
+
+// Authentication types
+export interface LoginCredentials {
+  email: string;
+  password: string;
+}
+
+export interface SignUpCredentials {
+  name: string;
+  email: string;
+  password: string;
+  confirmPassword: string;
+}
+
+export interface AuthResponse {
+  user: User;
+  token: string;
+  message?: string;
 }
 
 // App state
@@ -19,6 +45,7 @@ export interface AppState {
   isLoading: boolean;
   error: string | null;
   user: User | null;
+  isAuthenticated: boolean;
 }
 
 // API Response types
