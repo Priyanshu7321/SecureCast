@@ -24,11 +24,13 @@ import {
 } from '../store/slices/peerSlice';
 import { peerService } from '../services/peerService';
 import { serverlessPeerService } from '../services/serverlessPeerService';
+import { screenShareService } from '../services/screenShareService';
 import { useNotificationViewModel } from '../viewmodels/useNotificationViewModel';
 import { ConnectedDevice, ScreenShareRequest } from '../types';
 import StatusDialog from '../components/StatusDialog';
 import ServerlessDebug from '../components/ServerlessDebug';
 import ScreenShareViewer from '../components/ScreenShareViewer';
+import ScreenShareRequestDialog from '../components/ScreenShareRequestDialog';
 
 const ConnectionsScreenView: React.FC = () => {
   const dispatch = useAppDispatch();
@@ -42,18 +44,46 @@ const ConnectionsScreenView: React.FC = () => {
   const [receivedMessages, setReceivedMessages] = useState<Array<{id: string, from: string, message: string, timestamp: number, type: 'peerjs' | 'serverless'}>>([]);
   const [showMessaging, setShowMessaging] = useState(false);
   const [serverlessScreenShare, setServerlessScreenShare] = useState<{[deviceId: string]: {isSharing: boolean, isReceiving: boolean, stream?: any}}>({});
+  const [showScreenShareRequest, setShowScreenShareRequest] = useState(false);
+  const [currentScreenShareRequest, setCurrentScreenShareRequest] = useState<{fromDevice: string, deviceType: 'peerjs' | 'serverless', deviceId: string} | null>(null);
 
   useEffect(() => {
+    console.log('🔄 [ConnectionsScreen] Component mounted, setting up listeners...');
+    console.log('🔍 [ConnectionsScreen] Initial device counts - PeerJS:', connectedDevices.length, 'Serverless:', serverlessDevices.length);
+    
+    // Set up screen sharing service event listeners
+    screenShareService.setOnScreenShareStarted((streamId) => {
+      console.log('📺 [ConnectionsScreen] Screen share service started:', streamId);
+      showSuccessNotification('Screen Capture Active', 'Android screen capture started successfully');
+    });
+    
+    screenShareService.setOnScreenShareStopped(() => {
+      console.log('⏹️ [ConnectionsScreen] Screen share service stopped');
+      showInfoNotification('Screen Capture Stopped', 'Android screen capture stopped');
+    });
+    
+    screenShareService.setOnScreenShareError((error) => {
+      console.error('💥 [ConnectionsScreen] Screen share service error:', error);
+      showErrorNotification('Screen Capture Error', error);
+    });
+    
     // Set up PeerJS event listeners
     peerService.onData((data, fromPeerId) => {
       console.log('Received data:', data, 'from:', fromPeerId);
       
       if (data.type === 'screen_share_request') {
         const request: ScreenShareRequest = data;
+        // Use new dialog for screen share requests
+        setCurrentScreenShareRequest({
+          fromDevice: fromPeerId.slice(-6),
+          deviceType: 'peerjs',
+          deviceId: fromPeerId,
+        });
+        setShowScreenShareRequest(true);
+        
+        // Also keep the old flow for compatibility
         dispatch(addScreenShareRequest(request));
         setCurrentRequest(request);
-        setShowRequestDialog(true);
-        showInfoNotification('Screen Share Request', `${fromPeerId.slice(-6)} wants to share their screen`);
       } else if (data.type === 'screen_share_response') {
         const response = data;
         if (response.status === 'accepted') {
@@ -119,31 +149,12 @@ const ConnectionsScreenView: React.FC = () => {
         showInfoNotification('Serverless Message', `${fromDeviceId.slice(-6)}: ${data.message.substring(0, 30)}${data.message.length > 30 ? '...' : ''}`);
       } else if (data.type === 'screen_share_request') {
         // Handle screen share requests from serverless devices
-        Alert.alert(
-          'Screen Share Request',
-          `${fromDeviceId.slice(-6)} wants to share their screen. Accept?`,
-          [
-            { text: 'Reject', style: 'cancel', onPress: () => {
-              serverlessPeerService.sendData(fromDeviceId, {
-                type: 'screen_share_response',
-                status: 'rejected',
-                timestamp: Date.now(),
-              });
-            }},
-            { text: 'Accept', onPress: () => {
-              serverlessPeerService.sendData(fromDeviceId, {
-                type: 'screen_share_response',
-                status: 'accepted',
-                timestamp: Date.now(),
-              });
-              setServerlessScreenShare(prev => ({
-                ...prev,
-                [fromDeviceId]: { ...prev[fromDeviceId], isReceiving: true }
-              }));
-              showSuccessNotification('Request Accepted', 'Ready to receive screen share');
-            }},
-          ]
-        );
+        setCurrentScreenShareRequest({
+          fromDevice: fromDeviceId.slice(-6),
+          deviceType: 'serverless',
+          deviceId: fromDeviceId,
+        });
+        setShowScreenShareRequest(true);
       } else if (data.type === 'screen_share_response') {
         if (data.status === 'accepted') {
           showSuccessNotification('Request Accepted', 'Starting screen share...');
@@ -183,9 +194,19 @@ const ConnectionsScreenView: React.FC = () => {
     });
 
     return () => {
-      // Cleanup listeners if needed
+      // Cleanup listeners and screen sharing service
+      console.log('🧹 [ConnectionsScreen] Component unmounting, cleaning up...');
+      screenShareService.cleanup();
     };
   }, [dispatch, showSuccessNotification, showErrorNotification, showInfoNotification]);
+
+  // Log device changes
+  useEffect(() => {
+    console.log('📊 [ConnectionsScreen] Device state changed:');
+    console.log('🔍 [ConnectionsScreen] PeerJS devices:', connectedDevices.length, connectedDevices.map(d => d.name));
+    console.log('🔍 [ConnectionsScreen] Serverless devices:', serverlessDevices.length, serverlessDevices.map(d => d.name));
+    console.log('🔍 [ConnectionsScreen] Total devices:', connectedDevices.length + serverlessDevices.length);
+  }, [connectedDevices, serverlessDevices]);
 
   const handleRefresh = () => {
     setRefreshing(true);
@@ -393,16 +414,25 @@ const ConnectionsScreenView: React.FC = () => {
 
   // Serverless screen sharing handlers
   const handleRequestServerlessScreenShare = (device: ConnectedDevice) => {
+    console.log('📥 [ConnectionsScreen] Requesting screen share from device:', device.name, device.id);
+    
     Alert.alert(
       'Request Screen Share',
       `Request screen sharing from ${device.name}?`,
       [
-        { text: 'Cancel', style: 'cancel' },
+        { text: 'Cancel', style: 'cancel', onPress: () => {
+          console.log('❌ [ConnectionsScreen] User cancelled screen share request');
+        }},
         { text: 'Request', onPress: () => {
+          console.log('✅ [ConnectionsScreen] User confirmed screen share request, sending...');
+          
           const success = serverlessPeerService.sendData(device.id, {
             type: 'screen_share_request',
             timestamp: Date.now(),
           });
+          
+          console.log('📤 [ConnectionsScreen] Screen share request sent, success:', success);
+          
           if (success) {
             showInfoNotification('Request Sent', `Screen share request sent to ${device.name}`);
           } else {
@@ -415,35 +445,175 @@ const ConnectionsScreenView: React.FC = () => {
 
   const handleStartServerlessScreenShare = async (deviceId: string) => {
     try {
-      const stream = await serverlessPeerService.startScreenShare(deviceId);
+      console.log('🎬 [ConnectionsScreen] Starting Android screen share with MediaProjection...');
+      console.log('🔍 [ConnectionsScreen] Device ID:', deviceId);
+      
+      // Check if screen sharing is supported
+      const isSupported = await screenShareService.isSupported();
+      if (!isSupported) {
+        showErrorNotification('Not Supported', 'Screen sharing is not supported on this device');
+        return;
+      }
+      
+      // Start screen sharing with Android MediaProjection
+      const result = await screenShareService.startScreenShare();
+      if (!result?.success) {
+        showErrorNotification('Permission Denied', 'Screen capture permission was denied or failed to start');
+        return;
+      }
+      
+      console.log('✅ [ConnectionsScreen] Android screen share started:', result);
+      
+      // Add this device as a connected peer for screen sharing
+      screenShareService.addConnectedPeer(deviceId);
+      
+      // Update local state
       setServerlessScreenShare(prev => ({
         ...prev,
-        [deviceId]: { ...prev[deviceId], isSharing: true, stream }
+        [deviceId]: { 
+          ...prev[deviceId], 
+          isSharing: true, 
+          stream: { id: result.streamId, _isScreenShare: true }
+        }
       }));
-      showSuccessNotification('Screen Share Started', 'Now sharing your screen');
+      
+      // Start serverless P2P connection for the screen stream
+      try {
+        const p2pStream = await serverlessPeerService.startScreenShare(deviceId);
+        console.log('✅ [ConnectionsScreen] P2P connection established for screen share');
+        
+        // Update stream with P2P connection info
+        setServerlessScreenShare(prev => ({
+          ...prev,
+          [deviceId]: { 
+            ...prev[deviceId], 
+            stream: { 
+              id: result.streamId, 
+              _isScreenShare: true,
+              _p2pStream: p2pStream
+            }
+          }
+        }));
+        
+      } catch (p2pError) {
+        console.warn('⚠️ [ConnectionsScreen] P2P connection failed, but screen capture is active:', p2pError);
+      }
+      
+      showSuccessNotification('Screen Share Started', `Now sharing your screen with device ${deviceId}`);
+      
     } catch (error) {
+      console.error('💥 [ConnectionsScreen] Android screen share failed:', error);
+      console.log('🔍 [ConnectionsScreen] About to call showErrorNotification...');
       showErrorNotification('Screen Share Failed', `Failed to start screen sharing: ${error}`);
+      console.log('🔍 [ConnectionsScreen] showErrorNotification called');
     }
   };
 
-  const handleStopServerlessScreenShare = (deviceId: string) => {
-    serverlessPeerService.stopScreenShare(deviceId);
-    setServerlessScreenShare(prev => ({
-      ...prev,
-      [deviceId]: { ...prev[deviceId], isSharing: false, stream: undefined }
-    }));
-    showInfoNotification('Screen Share Stopped', 'Stopped sharing screen');
+  const handleStopServerlessScreenShare = async (deviceId: string) => {
+    console.log('⏹️ [ConnectionsScreen] Stopping Android screen share for device:', deviceId);
+    
+    try {
+      // Remove peer from screen sharing service
+      screenShareService.removeConnectedPeer(deviceId);
+      
+      // Check if there are other connected peers
+      const connectedPeers = screenShareService.getConnectedPeers();
+      
+      // If no more peers, stop the screen sharing service
+      if (connectedPeers.length === 0) {
+        console.log('ℹ️ [ConnectionsScreen] No more connected peers, stopping screen share service');
+        await screenShareService.stopScreenShare();
+      }
+      
+      // Stop P2P connection
+      serverlessPeerService.stopScreenShare(deviceId);
+      
+      // Update local state
+      setServerlessScreenShare(prev => ({
+        ...prev,
+        [deviceId]: { ...prev[deviceId], isSharing: false, stream: undefined }
+      }));
+      
+      showInfoNotification('Screen Share Stopped', 'Stopped sharing screen');
+      console.log('✅ [ConnectionsScreen] Android screen share stopped');
+      
+    } catch (error) {
+      console.error('💥 [ConnectionsScreen] Error stopping screen share:', error);
+      showErrorNotification('Stop Failed', 'Failed to stop screen sharing');
+    }
   };
 
   const handleOfferToShareScreen = (device: ConnectedDevice) => {
+    console.log('🎬 [ConnectionsScreen] Offering to share video with device:', device.name, device.id);
+    
     Alert.alert(
-      'Share Your Screen',
-      `Share your screen with ${device.name}?`,
+      'Share Your Video',
+      `Share your camera video with ${device.name}?`,
       [
-        { text: 'Cancel', style: 'cancel' },
-        { text: 'Share', onPress: () => handleStartServerlessScreenShare(device.id) },
+        { text: 'Cancel', style: 'cancel', onPress: () => {
+          console.log('❌ [ConnectionsScreen] User cancelled video share offer');
+        }},
+        { text: 'Share Video', onPress: () => {
+          console.log('✅ [ConnectionsScreen] User confirmed video share, starting...');
+          handleStartServerlessScreenShare(device.id);
+        }},
       ]
     );
+  };
+
+  // Screen share request dialog handlers
+  const handleAcceptScreenShareRequest = () => {
+    if (!currentScreenShareRequest) return;
+
+    const { deviceId, deviceType } = currentScreenShareRequest;
+
+    if (deviceType === 'serverless') {
+      serverlessPeerService.sendData(deviceId, {
+        type: 'screen_share_response',
+        status: 'accepted',
+        timestamp: Date.now(),
+      });
+      setServerlessScreenShare(prev => ({
+        ...prev,
+        [deviceId]: { ...prev[deviceId], isReceiving: true }
+      }));
+    } else {
+      // Handle PeerJS acceptance
+      peerService.sendData(deviceId, {
+        type: 'screen_share_response',
+        status: 'accepted',
+        timestamp: Date.now(),
+      });
+    }
+
+    setShowScreenShareRequest(false);
+    setCurrentScreenShareRequest(null);
+    showSuccessNotification('Request Accepted', 'Ready to receive screen share');
+  };
+
+  const handleRejectScreenShareRequest = () => {
+    if (!currentScreenShareRequest) return;
+
+    const { deviceId, deviceType } = currentScreenShareRequest;
+
+    if (deviceType === 'serverless') {
+      serverlessPeerService.sendData(deviceId, {
+        type: 'screen_share_response',
+        status: 'rejected',
+        timestamp: Date.now(),
+      });
+    } else {
+      // Handle PeerJS rejection
+      peerService.sendData(deviceId, {
+        type: 'screen_share_response',
+        status: 'rejected',
+        timestamp: Date.now(),
+      });
+    }
+
+    setShowScreenShareRequest(false);
+    setCurrentScreenShareRequest(null);
+    showInfoNotification('Request Rejected', 'Screen share request was rejected');
   };
 
   const getDeviceRequestStatus = (device: ConnectedDevice) => {
@@ -555,23 +725,31 @@ const ConnectionsScreenView: React.FC = () => {
             <TouchableOpacity
               style={[styles.actionButton, styles.shareButton]}
               onPress={() => {
+                console.log('🖱️ [ConnectionsScreen] Screen share button clicked for device:', device.name, device.id);
+                console.log('🔍 [ConnectionsScreen] Current serverless state:', serverlessState);
+                
                 if (serverlessState.isSharing) {
+                  console.log('⏹️ [ConnectionsScreen] Stopping screen share...');
                   handleStopServerlessScreenShare(device.id);
                 } else {
+                  console.log('📤 [ConnectionsScreen] Starting screen share offer...');
                   handleOfferToShareScreen(device);
                 }
               }}
             >
               <Text style={styles.actionButtonText}>
-                {serverlessState.isSharing ? '⏹️ Stop Share' : '📤 Share Screen'}
+                {serverlessState.isSharing ? '⏹️ Stop Video' : '📹 Share Video'}
               </Text>
             </TouchableOpacity>
             
             <TouchableOpacity
               style={[styles.actionButton, styles.requestButton]}
-              onPress={() => handleRequestServerlessScreenShare(device)}
+              onPress={() => {
+                console.log('🖱️ [ConnectionsScreen] Request screen button clicked for device:', device.name, device.id);
+                handleRequestServerlessScreenShare(device);
+              }}
             >
-              <Text style={styles.actionButtonText}>📥 Request Screen</Text>
+              <Text style={styles.actionButtonText}>📥 Request Video</Text>
             </TouchableOpacity>
           </View>
         )}
@@ -640,6 +818,25 @@ const ConnectionsScreenView: React.FC = () => {
             {showMessaging ? '📱 Hide Messaging' : '💬 Show Messaging'}
           </Text>
         </TouchableOpacity>
+
+        {/* Screen Sharing Quick Access */}
+        {totalDeviceCount > 0 && (
+          <TouchableOpacity
+            style={styles.screenShareButton}
+            onPress={() => {
+              // Navigate to screen share tab or show quick actions
+              Alert.alert(
+                'Screen Sharing',
+                'Go to the Screen Share tab for full screen sharing controls, or use the device buttons below for quick actions.',
+                [{ text: 'OK' }]
+              );
+            }}
+          >
+            <Text style={styles.screenShareButtonText}>
+              📺 Screen Sharing Available
+            </Text>
+          </TouchableOpacity>
+        )}
       </View>
 
       {/* Messaging Interface */}
@@ -714,6 +911,15 @@ const ConnectionsScreenView: React.FC = () => {
 
       {/* Debug Component */}
       <ServerlessDebug />
+
+      {/* Screen Share Request Dialog */}
+      <ScreenShareRequestDialog
+        visible={showScreenShareRequest}
+        fromDevice={currentScreenShareRequest?.fromDevice || ''}
+        deviceType={currentScreenShareRequest?.deviceType || 'peerjs'}
+        onAccept={handleAcceptScreenShareRequest}
+        onReject={handleRejectScreenShareRequest}
+      />
 
       {/* Screen Share Request Dialog */}
       <StatusDialog
@@ -924,6 +1130,19 @@ const styles = StyleSheet.create({
     alignSelf: 'center',
   },
   toggleMessagingText: {
+    color: 'white',
+    fontSize: 14,
+    fontWeight: '600',
+  },
+  screenShareButton: {
+    backgroundColor: '#ff9500',
+    paddingVertical: 8,
+    paddingHorizontal: 16,
+    borderRadius: 6,
+    marginTop: 8,
+    alignSelf: 'center',
+  },
+  screenShareButtonText: {
     color: 'white',
     fontSize: 14,
     fontWeight: '600',

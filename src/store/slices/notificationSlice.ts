@@ -1,6 +1,7 @@
 import { createSlice, createAsyncThunk, PayloadAction } from '@reduxjs/toolkit';
 import { CustomNotification, NotificationConfig } from '../../types/notification';
 import { notificationService } from '../../services/notificationService';
+import { sanitizeNotification } from '../../utils/notificationUtils';
 
 interface NotificationState {
   notifications: CustomNotification[];
@@ -73,18 +74,30 @@ const notificationSlice = createSlice({
   initialState,
   reducers: {
     addNotification: (state, action: PayloadAction<CustomNotification>) => {
-      console.log('addNotification reducer called with:', action.payload);
-      console.log('Current notifications count:', state.notifications.length);
-      state.notifications.unshift(action.payload);
-      if (!action.payload.isRead) {
+      console.log('🔍 [NotificationSlice] addNotification reducer called with:', action.payload);
+      console.log('🔍 [NotificationSlice] Payload has actions?', !!action.payload.actions);
+      if (action.payload.actions) {
+        console.log('🔍 [NotificationSlice] Actions found:', action.payload.actions);
+      }
+      console.log('🔍 [NotificationSlice] Current notifications count:', state.notifications.length);
+      
+      // Use sanitization utility to ensure clean notification
+      const notification = sanitizeNotification(action.payload);
+      console.log('🔍 [NotificationSlice] Sanitized notification:', notification);
+      
+      state.notifications.unshift(notification);
+      if (!notification.isRead) {
         state.unreadCount += 1;
       }
-      console.log('New notifications count:', state.notifications.length);
-      console.log('New unread count:', state.unreadCount);
+      console.log('🔍 [NotificationSlice] New notifications count:', state.notifications.length);
+      console.log('🔍 [NotificationSlice] New unread count:', state.unreadCount);
     },
     
     addInAppNotification: (state, action: PayloadAction<CustomNotification>) => {
-      state.inAppNotifications.push(action.payload);
+      // Use sanitization utility to ensure clean notification
+      const notification = sanitizeNotification(action.payload);
+      
+      state.inAppNotifications.push(notification);
     },
     
     removeInAppNotification: (state, action: PayloadAction<string>) => {
@@ -120,8 +133,11 @@ const notificationSlice = createSlice({
     },
     
     clearAllNotifications: (state) => {
+      console.log('🧹 [NotificationSlice] Clearing all notifications');
       state.notifications = [];
+      state.inAppNotifications = [];
       state.unreadCount = 0;
+      console.log('🧹 [NotificationSlice] All notifications cleared');
     },
     
     updateConfig: (state, action: PayloadAction<Partial<NotificationConfig>>) => {
@@ -177,11 +193,14 @@ const notificationSlice = createSlice({
       })
       .addCase(scheduleLocalNotification.fulfilled, (state, action) => {
         state.isLoading = false;
-        const notification: CustomNotification = {
+        // Use sanitization utility to ensure clean notification
+        const baseNotification = {
           ...action.payload.notification,
           id: action.payload.id,
           timestamp: Date.now(),
         };
+        const notification = sanitizeNotification(baseNotification);
+        
         state.notifications.unshift(notification);
         if (!notification.isRead) {
           state.unreadCount += 1;

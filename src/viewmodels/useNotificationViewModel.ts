@@ -1,4 +1,4 @@
-import { useCallback, useEffect } from 'react';
+import { useCallback, useEffect, useMemo } from 'react';
 import { useAppDispatch, useAppSelector } from '../store';
 import {
   initializeNotifications,
@@ -7,8 +7,11 @@ import {
   addNotification,
   addInAppNotification,
   updateConfig,
+  clearAllNotifications,
 } from '../store/slices/notificationSlice';
 import { CustomNotification, NotificationType, NotificationPriority } from '../types/notification';
+import { createSafeNotification } from '../utils/notificationUtils';
+import { SafeNotificationDispatcher } from '../utils/safeNotificationDispatcher';
 
 export const useNotificationViewModel = () => {
   const dispatch = useAppDispatch();
@@ -22,49 +25,63 @@ export const useNotificationViewModel = () => {
     fcmToken,
   } = useAppSelector(state => state.notification);
 
+  // Create a safe notification dispatcher
+  const safeDispatcher = useMemo(() => new SafeNotificationDispatcher(dispatch), [dispatch]);
+
   // Initialize notifications on mount
   useEffect(() => {
+    console.log('🔄 [NotificationViewModel] Initializing notification system...');
+    
+    // Clear any existing notifications that might have actions
+    console.log('🧹 [NotificationViewModel] Clearing all existing notifications...');
+    dispatch(clearAllNotifications());
+    
     initializeNotificationSystem();
 
-    // Add some demo notifications for testing
+    // Add some demo notifications for testing (after a delay to ensure clean state)
     setTimeout(() => {
+      console.log('🔄 [NotificationViewModel] Adding demo notifications...');
       const demoNotifications = [
-        {
-          id: 'demo_1',
-          title: 'Welcome to SecureCast!',
-          message: 'Your notification system is now active and ready to use.',
-          type: 'success' as NotificationType,
-          timestamp: Date.now() - 300000, // 5 minutes ago
-          isRead: false,
-          priority: 'normal' as NotificationPriority,
-          category: 'welcome',
-        },
-        {
-          id: 'demo_2',
-          title: 'Profile Updated',
-          message: 'Your profile information has been successfully updated.',
-          type: 'info' as NotificationType,
-          timestamp: Date.now() - 600000, // 10 minutes ago
-          isRead: true,
-          priority: 'normal' as NotificationPriority,
-          category: 'profile',
-        },
-        {
-          id: 'demo_3',
-          title: 'System Maintenance',
-          message: 'Scheduled maintenance will occur tonight from 2-4 AM.',
-          type: 'warning' as NotificationType,
-          timestamp: Date.now() - 1800000, // 30 minutes ago
-          isRead: false,
-          priority: 'high' as NotificationPriority,
-          category: 'system',
-        },
+        createSafeNotification(
+          'Welcome to SecureCast!',
+          'Your notification system is now active and ready to use.',
+          'success',
+          {
+            isRead: false,
+            priority: 'normal',
+            category: 'welcome',
+            timestamp: Date.now() - 300000, // 5 minutes ago
+          }
+        ),
+        createSafeNotification(
+          'Profile Updated',
+          'Your profile information has been successfully updated.',
+          'info',
+          {
+            isRead: true,
+            priority: 'normal',
+            category: 'profile',
+            timestamp: Date.now() - 600000, // 10 minutes ago
+          }
+        ),
+        createSafeNotification(
+          'System Maintenance',
+          'Scheduled maintenance will occur tonight from 2-4 AM.',
+          'warning',
+          {
+            isRead: false,
+            priority: 'high',
+            category: 'system',
+            timestamp: Date.now() - 1800000, // 30 minutes ago
+          }
+        ),
       ];
 
       demoNotifications.forEach(notification => {
+        console.log('🔄 [NotificationViewModel] Adding demo notification:', notification.title);
         dispatch(addNotification(notification));
       });
-    }, 1000);
+    }, 2000); // Increased delay to ensure clean state
   }, []);
 
   const initializeNotificationSystem = useCallback(async () => {
@@ -95,20 +112,25 @@ export const useNotificationViewModel = () => {
       }>;
     }
   ) => {
-    const notification: CustomNotification = {
-      id: `inapp_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
-      title,
-      message,
-      type,
-      timestamp: Date.now(),
-      isRead: false,
+    console.log('🔍 [NotificationViewModel] Creating in-app notification:', title);
+    console.log('🔍 [NotificationViewModel] Options received:', options);
+    console.log('🔍 [NotificationViewModel] Options has actions?', !!options?.actions);
+    if (options?.actions) {
+      console.log('🔍 [NotificationViewModel] Actions in options:', options.actions);
+    }
+    
+    // Use safe notification creation utility
+    const notification = createSafeNotification(title, message, type, {
       priority: options?.priority || 'normal',
       category: options?.category,
       imageUrl: options?.imageUrl,
       autoHide: options?.autoHide,
       duration: options?.duration,
-      actions: options?.actions,
-    };
+      // Actions are intentionally omitted to prevent serialization issues
+    });
+
+    console.log('🔍 [NotificationViewModel] Final notification object:', notification);
+    console.log('🔍 [NotificationViewModel] Final notification has actions?', !!notification.actions);
 
     // Show the in-app notification
     dispatch(addInAppNotification(notification));
@@ -162,66 +184,27 @@ export const useNotificationViewModel = () => {
   }, [dispatch]);
 
   const showSuccessNotification = useCallback((title: string, message: string, inApp = true) => {
-    if (inApp) {
-      showInAppNotification(title, message, 'success', {
-        priority: 'normal',
-        autoHide: true,
-        duration: 3000,
-        category: 'success',
-        saveToCenter: true, // Always save success notifications
-      });
-    } else {
-      showLocalNotification(title, message, 'success');
-    }
-  }, [showInAppNotification, showLocalNotification]);
+    console.log('🔍 [NotificationViewModel] showSuccessNotification called:', title, message);
+    safeDispatcher.showSuccess(title, message);
+  }, [safeDispatcher]);
 
   const showErrorNotification = useCallback((title: string, message: string, inApp = true) => {
-    if (inApp) {
-      showInAppNotification(title, message, 'error', {
-        priority: 'high',
-        autoHide: false,
-        category: 'error',
-        saveToCenter: true, // Always save error notifications
-        actions: [
-          {
-            id: 'dismiss',
-            title: 'Dismiss',
-            onPress: () => { },
-          },
-        ],
-      });
-    } else {
-      showLocalNotification(title, message, 'error', { priority: 'high' });
-    }
-  }, [showInAppNotification, showLocalNotification]);
+    console.log('🔍 [NotificationViewModel] showErrorNotification called:', title, message);
+    console.log('🔍 [NotificationViewModel] Using safe dispatcher for error notification');
+    
+    // Use the safe dispatcher to ensure no serialization issues
+    safeDispatcher.showError(title, message);
+  }, [safeDispatcher]);
 
   const showWarningNotification = useCallback((title: string, message: string, inApp = true) => {
-    if (inApp) {
-      showInAppNotification(title, message, 'warning', {
-        priority: 'high',
-        autoHide: true,
-        duration: 5000,
-        category: 'warning',
-        saveToCenter: true, // Always save warning notifications
-      });
-    } else {
-      showLocalNotification(title, message, 'warning', { priority: 'high' });
-    }
-  }, [showInAppNotification, showLocalNotification]);
+    console.log('🔍 [NotificationViewModel] showWarningNotification called:', title, message);
+    safeDispatcher.showWarning(title, message);
+  }, [safeDispatcher]);
 
   const showInfoNotification = useCallback((title: string, message: string, inApp = true) => {
-    if (inApp) {
-      showInAppNotification(title, message, 'info', {
-        priority: 'normal',
-        autoHide: true,
-        duration: 4000,
-        category: 'info',
-        saveToCenter: true, // Always save info notifications
-      });
-    } else {
-      showLocalNotification(title, message, 'info');
-    }
-  }, [showInAppNotification, showLocalNotification]);
+    console.log('🔍 [NotificationViewModel] showInfoNotification called:', title, message);
+    safeDispatcher.showInfo(title, message);
+  }, [safeDispatcher]);
 
   const updateNotificationConfig = useCallback((newConfig: Partial<typeof config>) => {
     dispatch(updateConfig(newConfig));

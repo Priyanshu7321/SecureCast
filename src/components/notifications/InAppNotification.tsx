@@ -156,7 +156,8 @@ const InAppNotification: React.FC<InAppNotificationProps> = ({
         </TouchableOpacity>
       </TouchableOpacity>
 
-      {notification.actions && notification.actions.length > 0 && (
+      {/* Actions temporarily disabled to fix Redux serialization issues */}
+      {false && notification.actions && notification.actions.length > 0 && (
         <View style={styles.actionsContainer}>
           {notification.actions.map((action) => (
             <TouchableOpacity
@@ -167,7 +168,7 @@ const InAppNotification: React.FC<InAppNotificationProps> = ({
               ]}
               onPress={() => {
                 onActionPress?.(action.id);
-                action.onPress();
+                // action.onPress(); // Removed to fix serialization
                 handleDismiss();
               }}
             >

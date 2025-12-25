@@ -14,6 +14,7 @@ import { useNotificationViewModel } from '../viewmodels/useNotificationViewModel
 import { useAppDispatch } from '../store';
 import { addNotification } from '../store/slices/notificationSlice';
 import { CustomNotification, NotificationType, NotificationPriority } from '../types/notification';
+import { createSafeNotification } from '../utils/notificationUtils';
 import NotificationCenter from '../components/notifications/NotificationCenter';
 import NotificationDebug from '../components/NotificationDebug';
 import LoadingSpinner from '../components/LoadingSpinner';
@@ -47,16 +48,15 @@ const NotificationView: React.FC<Props> = ({ navigation }) => {
 
   // Direct test function
   const addDirectNotification = () => {
-    const notification: CustomNotification = {
-      id: `direct_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
-      title: 'Direct Test Notification',
-      message: 'This notification was added directly to the store from NotificationView',
-      type: 'info' as NotificationType,
-      timestamp: Date.now(),
-      isRead: false,
-      priority: 'normal' as NotificationPriority,
-      category: 'test',
-    };
+    const notification = createSafeNotification(
+      'Direct Test Notification',
+      'This notification was added directly to the store from NotificationView',
+      'info',
+      {
+        priority: 'normal',
+        category: 'test',
+      }
+    );
     
     console.log('NotificationView: Adding direct notification:', notification);
     dispatch(addNotification(notification));

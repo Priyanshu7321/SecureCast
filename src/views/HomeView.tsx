@@ -55,11 +55,7 @@ const HomeView: React.FC<Props> = ({ navigation }) => {
     showLocalNotification(title, message, type, {
       category: category || type,
       priority: 'normal',
-      actions: [
-        { id: 'view', title: 'View', onPress: () => console.log('View') },
-        { id: 'mark_read', title: 'Mark Read', onPress: () => console.log('Mark Read') },
-        { id: 'dismiss', title: 'Dismiss', onPress: () => console.log('Dismiss') },
-      ]
+      // Remove actions to fix Redux serialization issue
     });
 
     console.log('Triggered local persistent notification');

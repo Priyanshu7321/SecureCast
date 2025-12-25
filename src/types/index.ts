@@ -15,6 +15,7 @@ export type AuthStackParamList = {
 export type MainTabParamList = {
   HomeTab: undefined;
   ConnectionsTab: undefined;
+  ScreenShareTab: undefined;
 };
 
 // User model

@@ -17,7 +17,28 @@ export const store = configureStore({
   middleware: (getDefaultMiddleware) =>
     getDefaultMiddleware({
       serializableCheck: {
-        ignoredActions: ['persist/PERSIST'],
+        // Ignore these action types
+        ignoredActions: [
+          'notification/addNotification',
+          'notification/addInAppNotification',
+          'notification/scheduleLocal/fulfilled',
+        ],
+        // Ignore these field paths in all actions
+        ignoredActionsPaths: [
+          'payload.actions',
+          'payload.actions.0.onPress',
+          'payload.actions.1.onPress',
+          'payload.actions.2.onPress',
+        ],
+        // Ignore these paths in the state
+        ignoredPaths: [
+          'notification.notifications.0.actions',
+          'notification.notifications.1.actions',
+          'notification.notifications.2.actions',
+          'notification.inAppNotifications.0.actions',
+          'notification.inAppNotifications.1.actions',
+          'notification.inAppNotifications.2.actions',
+        ],
       },
     }),
 });

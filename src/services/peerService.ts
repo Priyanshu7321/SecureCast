@@ -303,29 +303,69 @@ class PeerService {
     });
   }
 
-  // Get screen stream (React Native WebRTC implementation)
+  // Get screen stream (Native screen capture with camera fallback for video sharing)
   private async getScreenStream(): Promise<any> {
     try {
-      // In React Native, we need to use mediaDevices.getDisplayMedia
-      // Note: Screen capture in React Native requires additional native modules
-      // For now, we'll create a mock stream that's compatible with WebRTC
+      console.log('📱 [ScreenCapture] Getting video stream for sharing...');
       
-      console.log('Creating mock screen stream for React Native...');
+      // Import screen capture manager
+      const { screenCaptureManager } = require('../modules/ScreenCapture');
       
-      // Create a mock MediaStream-like object
-      const mockStream = new MediaStream();
+      let stream;
       
-      // In a real implementation, you would:
-      // 1. Use react-native-webrtc's getDisplayMedia (if available)
-      // 2. Or use a native module for screen capture
-      // 3. Or use camera stream as fallback
-      
-      // For development, return the mock stream
-      return mockStream;
+      try {
+        // Check if native screen capture is supported
+        const isSupported = await screenCaptureManager.isSupported();
+        if (!isSupported) {
+          throw new Error('Native screen capture not supported on this device');
+        }
+
+        // Start native screen capture
+        stream = await screenCaptureManager.startCapture();
+        console.log('✅ [ScreenCapture] Native screen capture stream obtained:', stream.id);
+        return stream;
+        
+      } catch (nativeError) {
+        console.error('📱 [ScreenCapture] Native screen capture failed, using camera for video sharing:', nativeError);
+        
+        // Fallback to camera for actual video sharing
+        const { mediaDevices } = require('react-native-webrtc');
+        
+        if (!mediaDevices) {
+          throw new Error('React Native WebRTC not available - cannot share video');
+        }
+
+        // Use camera for actual video streaming
+        stream = await mediaDevices.getUserMedia({
+          video: {
+            width: { ideal: 1280, max: 1920 },
+            height: { ideal: 720, max: 1080 },
+            frameRate: { ideal: 15, max: 30 },
+            facingMode: 'user', // Front camera
+          },
+          audio: true, // Include microphone audio
+        });
+        
+        console.log('✅ [ScreenCapture] Camera video stream obtained for sharing:', stream.id);
+        return stream;
+      }
       
     } catch (error) {
-      console.error('Failed to get screen stream:', error);
-      throw new Error('Screen capture not available in current environment');
+      console.error('💥 [ScreenCapture] Error getting video stream:', error);
+      
+      if (error instanceof Error) {
+        if (error.message.includes('Permission denied') || error.message.includes('NotAllowedError')) {
+          throw new Error('Camera/microphone permission denied. Please grant permissions in device settings.');
+        } else if (error.message.includes('NotFoundError')) {
+          throw new Error('No camera or microphone found on this device.');
+        } else if (error.message.includes('NotSupportedError')) {
+          throw new Error('Video capture is not supported on this device.');
+        } else {
+          throw new Error(`Video sharing failed: ${error.message}`);
+        }
+      } else {
+        throw new Error(`Video sharing failed: ${String(error)}`);
+      }
     }
   }
 
@@ -336,6 +376,16 @@ class PeerService {
       peerConnection.mediaConnection.close();
       peerConnection.mediaConnection = undefined;
       this.connections.set(peerId, peerConnection);
+    }
+
+    // Stop native screen capture if active
+    try {
+      const { screenCaptureManager } = require('../modules/ScreenCapture');
+      if (screenCaptureManager.isCurrentlyCapturing()) {
+        screenCaptureManager.stopCapture();
+      }
+    } catch (error) {
+      console.log('Native screen capture stop failed (might be using fallback):', error);
     }
   }
 

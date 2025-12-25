@@ -4,6 +4,7 @@ import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { MainTabParamList } from '../types';
 import HomeScreenView from '../views/HomeScreenView';
 import ConnectionsScreenView from '../views/ConnectionsScreenView';
+import ScreenShareView from '../views/ScreenShareView';
 
 const Tab = createBottomTabNavigator<MainTabParamList>();
 
@@ -66,6 +67,17 @@ const MainTabNavigator: React.FC = () => {
             <TabIcon icon="📱" color={color} size={size} />
           ),
           headerTitle: 'Connected Devices',
+        }}
+      />
+      <Tab.Screen
+        name="ScreenShareTab"
+        component={ScreenShareView}
+        options={{
+          title: 'Screen Share',
+          tabBarIcon: ({ color, size }) => (
+            <TabIcon icon="📺" color={color} size={size} />
+          ),
+          headerTitle: 'Screen Sharing',
         }}
       />
     </Tab.Navigator>
