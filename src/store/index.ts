@@ -4,6 +4,7 @@ import userSlice from './slices/userSlice';
 import appSlice from './slices/appSlice';
 import notificationSlice from './slices/notificationSlice';
 import authSlice from './slices/authSlice';
+import peerSlice from './slices/peerSlice';
 
 export const store = configureStore({
   reducer: {
@@ -11,6 +12,7 @@ export const store = configureStore({
     app: appSlice,
     notification: notificationSlice,
     auth: authSlice,
+    peer: peerSlice,
   },
   middleware: (getDefaultMiddleware) =>
     getDefaultMiddleware({

@@ -12,6 +12,11 @@ export type AuthStackParamList = {
   ForgotPassword: undefined;
 };
 
+export type MainTabParamList = {
+  HomeTab: undefined;
+  ConnectionsTab: undefined;
+};
+
 // User model
 export interface User {
   id: string;
@@ -38,6 +43,41 @@ export interface AuthResponse {
   user: User;
   token: string;
   message?: string;
+}
+
+// PeerJS and Screen Sharing types
+export interface ConnectedDevice {
+  id: string;
+  peerId: string;
+  name?: string;
+  isConnected: boolean;
+  lastConnected: number;
+  connectionStatus: 'connecting' | 'connected' | 'disconnected' | 'error';
+}
+
+export interface ScreenShareRequest {
+  id: string;
+  fromPeerId: string;
+  toPeerId: string;
+  timestamp: number;
+  status: 'pending' | 'accepted' | 'rejected' | 'expired';
+  type: 'screen_share_request' | 'screen_share_response';
+}
+
+export interface PeerConnection {
+  peerId: string;
+  connection: any; // PeerJS DataConnection
+  mediaConnection?: any; // PeerJS MediaConnection
+  isDataChannelOpen: boolean;
+}
+
+export interface ScreenShareState {
+  isSharing: boolean;
+  isReceiving: boolean;
+  currentStream?: any;
+  receivedStream?: any;
+  sharingWithPeerId?: string;
+  receivingFromPeerId?: string;
 }
 
 // App state

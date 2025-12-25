@@ -1,16 +1,16 @@
 import React from 'react';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { RootStackParamList } from '../types';
+import MainTabNavigator from './MainTabNavigator';
 
-// Import Views
-import { HomeView, ProfileView, SettingsView, NotificationView } from '../views';
+// Import Views for additional screens
+import { ProfileView, SettingsView, NotificationView } from '../views';
 
 const Stack = createNativeStackNavigator<RootStackParamList>();
 
 const AppNavigator: React.FC = () => {
   return (
     <Stack.Navigator
-      initialRouteName="Home"
       screenOptions={{
         headerStyle: {
           backgroundColor: '#007AFF',
@@ -23,8 +23,8 @@ const AppNavigator: React.FC = () => {
     >
       <Stack.Screen 
         name="Home" 
-        component={HomeView}
-        options={{ title: 'SecureCast Home' }}
+        component={MainTabNavigator}
+        options={{ headerShown: false }}
       />
       <Stack.Screen 
         name="Profile" 

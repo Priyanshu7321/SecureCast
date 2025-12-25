@@ -13,6 +13,12 @@ import { store } from './src/store';
 import RootNavigator from './src/navigation/RootNavigator';
 import NotificationManager from './src/components/notifications/NotificationManager';
 
+// Setup WebRTC for PeerJS
+import { setupWebRTC } from './src/utils/webrtcSetup';
+
+// Initialize WebRTC polyfills
+setupWebRTC();
+
 function App(): React.JSX.Element {
   const isDarkMode = useColorScheme() === 'dark';
 

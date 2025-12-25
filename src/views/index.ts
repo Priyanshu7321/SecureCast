@@ -5,3 +5,5 @@ export { default as NotificationView } from './NotificationView';
 export { default as LoginView } from './LoginView';
 export { default as SignUpView } from './SignUpView';
 export { default as ForgotPasswordView } from './ForgotPasswordView';
+export { default as HomeScreenView } from './HomeScreenView';
+export { default as ConnectionsScreenView } from './ConnectionsScreenView';
